@@ -479,7 +479,7 @@
       }
       bunkers.push(points);
     }
-    invaderBaseSpeed = 0.38 + (wave-1)*0.06;
+    invaderBaseSpeed = 0.55 + (wave-1)*0.06;
     invaderDirection = 1;
     stepIndex = 0;
     mothership = null;
@@ -523,11 +523,11 @@
     // Auto-fire on mobile while fire button held
     if (touch.fire) {
       touchFireTimer += dt;
-      if (touchFireTimer >= 0.22) { shoot(); touchFireTimer = 0; }
+      if (touchFireTimer >= 0.18) { shoot(); touchFireTimer = 0; }
     }
 
     // Player movement
-    const speed = 3.6;
+    const speed = 4.2;
     if (player.respawn > 0) player.respawn--;
     else player.alive = true;
     if (player.alive) {
@@ -547,20 +547,20 @@
       if (inv.y + invH > bottomY) bottomY = inv.y + invH;
     }
 
-    const stepThreshold = Math.max(30, 70 - liveCount*0.6 - wave*1.5);
+    const stepThreshold = Math.max(18, 38 - liveCount*0.4 - wave*1.0);
     if (invaderStepTimer > stepThreshold) {
       invaderStepTimer = 0;
       let drop = false;
-      if (invaderDirection > 0 && rightmost > W - 40) { invaderDirection = -1; drop = true; }
-      else if (invaderDirection < 0 && leftmost < 40) { invaderDirection = 1; drop = true; }
+      if (invaderDirection > 0 && rightmost > W - 46) { invaderDirection = -1; drop = true; }
+      else if (invaderDirection < 0 && leftmost < 46) { invaderDirection = 1; drop = true; }
 
       const row = stepIndex % 4;
       playStep(row);
       for (const inv of invaders) {
         if (!inv.alive) continue;
         inv.frame = 1 - inv.frame;
-        inv.x += invaderDirection * 6;
-        if (drop) inv.y += 12;
+        inv.x += invaderDirection * 8;
+        if (drop) inv.y += 14;
       }
       stepIndex++;
     }
@@ -615,7 +615,7 @@
     }
 
     // Invader bombs
-    if (frame % Math.max(45, 110 - liveCount) === 0 && liveCount > 0) {
+    if (frame % Math.max(38, 80 - liveCount) === 0 && liveCount > 0) {
       const shooters = invaders.filter(inv => inv.alive && !invaders.some(i => i.alive && i.c === inv.c && i.r > inv.r));
       if (shooters.length) {
         const s = shooters[Math.floor(Math.random()*shooters.length)];
@@ -640,7 +640,7 @@
     if (liveCount === 0) {
       wave++;
       spawnWave();
-      invaderBaseSpeed = 0.38 + (wave-1)*0.08;
+      invaderBaseSpeed = 0.55 + (wave-1)*0.08;
     }
 
     // Explosions fade
