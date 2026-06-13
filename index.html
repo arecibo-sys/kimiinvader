@@ -105,7 +105,7 @@
     }
 
     @media (hover: none) and (pointer: coarse) {
-      #gameBox { height: min(66vh, 520px); }
+      #gameBox { height: min(58vh, 460px); }
       #touchControls { display: flex; }
     }
 
@@ -123,11 +123,12 @@
       border-radius: 10px;
       color: var(--accent);
       text-align: center;
-      padding: 18px 0;
-      font-size: 22px;
+      padding: 22px 0;
+      font-size: 26px;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
+      min-height: 72px;
     }
 
     .touchBtn:active { background: rgba(0,255,65,0.25); }
@@ -247,12 +248,13 @@
 
   let score = 0, hiscore = parseInt(localStorage.getItem('kimi_hi') || '0', 10);
   let lives = 3, wave = 1, running = false, muted = false;
-  let lastT = 0, frame = 0;
-  let invaderStepTimer = 0, invaderDirection = 1, invaderSpeed = 0.55;
+  let lastT = 0, frame = 0, accumulator = 0;
+  let invaderStepTimer = 0, invaderDirection = 1, invaderBaseSpeed = 0.45;
   let mothership = null, mothershipTimer = 0;
   let player, bullets, invaders, bombs, bunkers, explosions, stars;
   let stepIndex = 0;
   let rafId = null;
+  const FIXED_DT = 1000/60;
 
   hiEl.textContent = hiscore;
 
@@ -318,7 +320,7 @@
     for (let r=0; r<h; r++) {
       for (let c=0; c<w; c++) {
         if (map[r][c]) {
-          ctx.fillRect(Math.round(x + c*scale), Math.round(y + r*scale), Math.ceil(scale), Math.ceil(scale));
+          ctx.fillRect(x + c*scale | 0, y + r*scale | 0, scale | 0 || 1, scale | 0 || 1);
         }
       }
     }
@@ -368,8 +370,8 @@
   }
 
   function playStep(row) {
-    const freqs = [110, 132, 165, 198]; // classic descending progression
-    tone(freqs[row] || 110, 0.06, 'square', 0.05);
+    const freqs = [110, 132, 165, 198];
+    tone(freqs[row] || 110, 0.05, 'square', 0.04);
   }
 
   function playShoot() { tone(880, 0.12, 'sawtooth', 0.05); tone(1200, 0.12, 'sawtooth', 0.04, 0.01); }
@@ -468,7 +470,7 @@
       }
       bunkers.push(points);
     }
-    invaderSpeed = 0.55 + (wave-1)*0.12;
+    invaderBaseSpeed = 0.38 + (wave-1)*0.06;
     invaderDirection = 1;
     stepIndex = 0;
     mothership = null;
@@ -492,7 +494,7 @@
       for (const p of bunker) {
         if (!p.alive) continue;
         const dx = bx - p.x, dy = by - p.y;
-        if (dx*dx + dy*dy < dmg*dmg + 6) { p.alive = false; return true; }
+        if (dx*dx + dy*dy < dmg*dmg + 10) { p.alive = false; return true; }
       }
     }
     return false;
@@ -500,19 +502,27 @@
 
   function update(dt) {
     if (!running) return;
+    accumulator += dt / FIXED_DT;
+    if (accumulator > 5) accumulator = 5;
+    while (accumulator >= 1) {
+      step();
+      accumulator -= 1;
+    }
+  }
 
+  function step() {
     // Player movement
-    const speed = 5.2;
-    if (player.respawn > 0) player.respawn -= dt;
+    const speed = 3.6;
+    if (player.respawn > 0) player.respawn--;
     else player.alive = true;
     if (player.alive) {
-      if (keys['ArrowLeft'] || touch.left) player.x -= speed;
-      if (keys['ArrowRight'] || touch.right) player.x += speed;
+      if (keys['ArrowLeft'] || keys['KeyA'] || touch.left) player.x -= speed;
+      if (keys['ArrowRight'] || keys['KeyD'] || touch.right) player.x += speed;
       player.x = Math.max(8, Math.min(W - player.w - 8, player.x));
     }
 
     // Invaders step
-    invaderStepTimer += dt * (1 + invaderSpeed);
+    invaderStepTimer += invaderBaseSpeed;
     let liveCount = 0, bottomY = 0, leftmost = W, rightmost = 0;
     for (const inv of invaders) {
       if (!inv.alive) continue;
@@ -522,20 +532,20 @@
       if (inv.y + invH > bottomY) bottomY = inv.y + invH;
     }
 
-    const stepThreshold = Math.max(8, 45 - liveCount*0.6 - wave*2);
+    const stepThreshold = Math.max(30, 70 - liveCount*0.6 - wave*1.5);
     if (invaderStepTimer > stepThreshold) {
       invaderStepTimer = 0;
       let drop = false;
-      if (invaderDirection > 0 && rightmost > W - 36) { invaderDirection = -1; drop = true; }
-      else if (invaderDirection < 0 && leftmost < 36) { invaderDirection = 1; drop = true; }
+      if (invaderDirection > 0 && rightmost > W - 40) { invaderDirection = -1; drop = true; }
+      else if (invaderDirection < 0 && leftmost < 40) { invaderDirection = 1; drop = true; }
 
       const row = stepIndex % 4;
       playStep(row);
       for (const inv of invaders) {
         if (!inv.alive) continue;
         inv.frame = 1 - inv.frame;
-        inv.x += invaderDirection * 8;
-        if (drop) inv.y += 16;
+        inv.x += invaderDirection * 6;
+        if (drop) inv.y += 12;
       }
       stepIndex++;
     }
@@ -552,7 +562,7 @@
       playMothership();
     }
     if (mothership) {
-      mothership.x += 1.4;
+      mothership.x += 1.2;
       if (mothership.x > W + 20) { mothership = null; mothershipTimer = 8 + Math.random()*10; }
     }
 
@@ -578,7 +588,7 @@
           inv.alive = false;
           explosions.push({x: inv.x, y: inv.y, w: invW, h: invH, life: 12, color: inv.color});
           score += (inv.type==='squid'?30:inv.type==='crab'?20:10);
-          invaderSpeed += 0.025;
+          invaderBaseSpeed += 0.012;
           playInvaderHit();
           hit = true; break;
         }
@@ -590,7 +600,7 @@
     }
 
     // Invader bombs
-    if (frame % Math.max(25, 90 - liveCount) === 0 && liveCount > 0) {
+    if (frame % Math.max(45, 110 - liveCount) === 0 && liveCount > 0) {
       const shooters = invaders.filter(inv => inv.alive && !invaders.some(i => i.alive && i.c === inv.c && i.r > inv.r));
       if (shooters.length) {
         const s = shooters[Math.floor(Math.random()*shooters.length)];
@@ -615,7 +625,7 @@
     if (liveCount === 0) {
       wave++;
       spawnWave();
-      invaderSpeed = 0.55 + (wave-1)*0.18;
+      invaderBaseSpeed = 0.38 + (wave-1)*0.08;
     }
 
     // Explosions fade
@@ -659,10 +669,10 @@
     }
 
     // Bunkers
+    ctx.fillStyle = '#00ff41';
     for (const bunker of bunkers) {
       for (const p of bunker) {
         if (!p.alive) continue;
-        ctx.fillStyle = '#00ff41';
         ctx.fillRect(p.x-2, p.y-2, 4, 4);
       }
     }
@@ -676,7 +686,6 @@
     for (const inv of invaders) {
       if (!inv.alive) continue;
       const map = invaderMaps[inv.type];
-      // animate by horizontal wiggle (original flips)
       const dx = inv.frame ? 4 : 0;
       drawBitmap(ctx, map, inv.x + dx, inv.y, inv.color, 2.3);
     }
@@ -715,7 +724,7 @@
 
   function loop(t) {
     if (!lastT) lastT = t;
-    const dt = (t - lastT) * 60 / 1000;
+    const dt = (t - lastT);
     lastT = t;
     update(dt);
     draw();
