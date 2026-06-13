@@ -419,12 +419,21 @@
   window.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') shoot(); });
 
   const touch = { left:false, right:false, fire:false };
-  function setTouch(id, v) { if(id==='leftBtn') touch.left=v; if(id==='rightBtn') touch.right=v; if(id==='fireBtn') touch.fire=v; }
+  let touchFireTimer = 0;
+  const setTouch = (id, v) => {
+    if(id==='leftBtn') touch.left=v;
+    if(id==='rightBtn') touch.right=v;
+    if(id==='fireBtn') {
+      touch.fire=v;
+      if (v) { shoot(); touchFireTimer = 0; }
+    }
+  };
   ['leftBtn','fireBtn','rightBtn'].forEach(id => {
     const el = document.getElementById(id);
-    el.addEventListener('touchstart', e => { e.preventDefault(); setTouch(id, true); if(id==='fireBtn') shoot(); el.classList.add('active'); }, {passive:false});
+    el.addEventListener('touchstart', e => { e.preventDefault(); setTouch(id, true); el.classList.add('active'); }, {passive:false});
     el.addEventListener('touchend', e => { e.preventDefault(); setTouch(id, false); el.classList.remove('active'); }, {passive:false});
-    el.addEventListener('mousedown', e => { setTouch(id, true); if(id==='fireBtn') shoot(); });
+    el.addEventListener('touchcancel', e => { e.preventDefault(); setTouch(id, false); el.classList.remove('active'); }, {passive:false});
+    el.addEventListener('mousedown', e => { setTouch(id, true); });
     el.addEventListener('mouseup', e => setTouch(id, false));
   });
 
@@ -479,7 +488,7 @@
 
   function shoot() {
     if (!running || !player.alive) return;
-    if (bullets.length < 2) {
+    if (bullets.length < 1) {
       bullets.push({x: player.x + player.w/2 - 2, y: player.y - 8, w:4, h:10, speed:7});
       playShoot();
     }
@@ -505,12 +514,18 @@
     accumulator += dt / FIXED_DT;
     if (accumulator > 5) accumulator = 5;
     while (accumulator >= 1) {
-      step();
+      step(FIXED_DT / 1000);
       accumulator -= 1;
     }
   }
 
-  function step() {
+  function step(dt) {
+    // Auto-fire on mobile while fire button held
+    if (touch.fire) {
+      touchFireTimer += dt;
+      if (touchFireTimer >= 0.22) { shoot(); touchFireTimer = 0; }
+    }
+
     // Player movement
     const speed = 3.6;
     if (player.respawn > 0) player.respawn--;
@@ -556,7 +571,7 @@
     }
 
     // Mothership
-    mothershipTimer -= dt/60;
+    mothershipTimer -= dt;
     if (!mothership && mothershipTimer <= 0) {
       mothership = {x: -50, y: 38, w: 52, h: 18, dir: 1, value: [50,100,150,300][Math.floor(Math.random()*4)]};
       playMothership();
@@ -735,7 +750,7 @@
     overlay.style.display = 'none';
     resetGame();
     running = true;
-    lastT = 0;
+    lastT = 0; accumulator = 0;
     startBGM();
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
